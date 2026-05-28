@@ -57,6 +57,11 @@ module.exports = {
         .addSubcommand(sub => sub
             .setName('clearpermanent')
             .setDescription('Clear all your permanent reminders')
+        )
+
+        .addSubcommand(sub => sub
+            .setName('list')
+            .setDescription('View all your active reminders')
         ),
 
     async execute(interaction) {
@@ -125,6 +130,46 @@ module.exports = {
         } else if (sub === 'clearpermanent') {
             reminderManager.clearPermanentReminders(userId);
             await interaction.reply('✅ All your permanent reminders have been cleared.');
+
+        } else if (sub === 'list') {
+            const data = reminderManager.getReminders();
+            const timed = data.timed.filter(r => r.userId === userId);
+            const permanent = data.permanent.filter(r => r.userId === userId);
+
+            if (timed.length === 0 && permanent.length === 0) {
+                return interaction.reply({ content: '📭 You have no active reminders.', ephemeral: true });
+            }
+
+            let msg = '📋 **Your Active Reminders**\n\n';
+
+            if (timed.length > 0) {
+                msg += '⏰ **Timed:**\n';
+                timed.forEach((r, i) => {
+                    const msLeft = r.fireAt - Date.now();
+                    const secsLeft = Math.max(0, Math.floor(msLeft / 1000));
+                    const minsLeft = Math.floor(secsLeft / 60);
+                    const hrsLeft = Math.floor(minsLeft / 60);
+                    const daysLeft = Math.floor(hrsLeft / 24);
+
+                    let timeLeft;
+                    if (daysLeft > 0) timeLeft = `${daysLeft}d ${hrsLeft % 24}h left`;
+                    else if (hrsLeft > 0) timeLeft = `${hrsLeft}h ${minsLeft % 60}m left`;
+                    else if (minsLeft > 0) timeLeft = `${minsLeft}m left`;
+                    else timeLeft = `${secsLeft}s left`;
+
+                    msg += `${i + 1}. **${r.reason}** — ${timeLeft}\n`;
+                });
+                msg += '\n';
+            }
+
+            if (permanent.length > 0) {
+                msg += '🔔 **Permanent (Daily):**\n';
+                permanent.forEach((r, i) => {
+                    msg += `${i + 1}. **${r.reason}**\n`;
+                });
+            }
+
+            await interaction.reply({ content: msg, ephemeral: true });
         }
     }
 };
