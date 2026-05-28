@@ -41,7 +41,12 @@ module.exports = {
 
         .addSubcommand(sub => sub
             .setName('permanent')
-            .setDescription('Set a permanent daily reminder')
+            .setDescription('Set a repeating permanent reminder')
+            .addStringOption(opt => opt
+                .setName('time')
+                .setDescription('Repeat every: 1s, 5m, 2hr, 1d')
+                .setRequired(true)
+            )
             .addStringOption(opt => opt
                 .setName('reason')
                 .setDescription('What to remind you about')
@@ -103,23 +108,35 @@ module.exports = {
             reminderManager.registerTimer(userId, timerId);
 
         } else if (sub === 'permanent') {
+            const timeStr = interaction.options.getString('time');
             const reason = interaction.options.getString('reason');
+            const ms = parseTime(timeStr);
+
+            if (!ms) {
+                return interaction.reply({
+                    content: '❌ Invalid time format. Use: `1s`, `5m`, `2hr`, `1d`',
+                    ephemeral: true
+                });
+            }
+
             const id = `${userId}-perm-${Date.now()}`;
 
             reminderManager.addPermanentReminder({
                 id,
                 userId,
                 channelId: channel.id,
-                reason
+                reason,
+                interval: ms,
+                intervalStr: timeStr
             });
 
             await interaction.reply(
-                `🔔 Permanent daily reminder set: **${reason}**`
+                `🔔 Permanent reminder set! I'll remind you every **${formatTime(timeStr)}**: ${reason}`
             );
 
             const intervalId = setInterval(async () => {
-                await channel.send(`🔔 <@${userId}> Daily Reminder: **${reason}**`);
-            }, 86400000);
+                await channel.send(`🔔 <@${userId}> Reminder: **${reason}**`);
+            }, ms);
 
             reminderManager.registerInterval(userId, intervalId);
 
@@ -163,9 +180,10 @@ module.exports = {
             }
 
             if (permanent.length > 0) {
-                msg += '🔔 **Permanent (Daily):**\n';
+                msg += '🔔 **Permanent (Repeating):**\n';
                 permanent.forEach((r, i) => {
-                    msg += `${i + 1}. **${r.reason}**\n`;
+                    const every = r.intervalStr ? `every ${formatTime(r.intervalStr)}` : 'every day';
+                    msg += `${i + 1}. **${r.reason}** — ${every}\n`;
                 });
             }
 
