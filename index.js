@@ -1,6 +1,13 @@
 require('dotenv').config();
 
+const http = require('http');
 const fs = require('fs');
+
+// Health check server required for deployment
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is running.');
+}).listen(8080);
 
 const {
     Client,
