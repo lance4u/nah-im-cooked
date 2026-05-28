@@ -1,0 +1,107 @@
+You are a senior Node.js + Replit deployment engineer.
+
+Analyze and automatically fix ALL issues preventing this Replit project from running, deploying, staying online, and being monitored correctly.
+
+Perform a COMPLETE audit of the entire project.
+
+Tasks to perform:
+
+1. Detect all startup/runtime errors
+
+* Fix syntax errors
+* Fix missing imports
+* Fix invalid package versions
+* Fix broken require/import paths
+* Fix async issues and crashes
+* Fix uncaught promise rejections
+* Fix invalid environment variable usage
+* Fix all deployment-breaking issues
+
+2. Verify package.json
+
+* Ensure correct "main" file
+* Add all missing dependencies
+* Remove broken dependencies
+* Ensure npm install works without errors
+* Ensure npm start works properly
+
+3. Configure Express keep-alive server
+   If no web server exists, automatically create one.
+
+Use this exact professional setup:
+
+```js
+const express = require("express");
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.status(200).send("Bot is online.");
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+4. Replit compatibility fixes
+
+* Ensure app binds to 0.0.0.0
+* Ensure process.env.PORT is used
+* Ensure deployment works on Replit autoscale/deployments
+* Ensure public URL responds correctly
+* Ensure no infinite restart loops
+
+5. Discord bot fixes
+
+* Verify Discord.js version compatibility
+* Fix intents issues
+* Verify token loading from .env
+* Prevent bot crashes if token missing
+* Add proper login error handling
+
+6. Monitoring/Uptime fixes
+
+* Ensure HTTPS monitor can access app
+* Ensure homepage returns HTTP 200
+* Prevent “Preparing…” forever issue
+* Ensure UptimeRobot/Replit monitoring works properly
+
+7. Add professional error handling
+   Add:
+
+* process.on("unhandledRejection")
+* process.on("uncaughtException")
+* detailed console logging
+
+8. Optimize deployment
+
+* Reduce unnecessary crashes
+* Ensure stable long-term uptime
+* Prevent memory leaks where possible
+* Ensure app can run 24/7
+
+9. After fixing:
+
+* Show every modified file
+* Explain every issue found
+* Show final project structure
+* Show exact command to run
+* Confirm whether deployment should now work
+
+10. If any file is missing:
+    Automatically create the required file with production-ready code.
+
+Goal:
+The app must successfully:
+
+* run
+* deploy
+* stay online
+* respond to web requests
+* be monitored correctly
+* avoid “Preparing…” forever
+* avoid crashing after publish
+
+Do not stop until ALL deployment and uptime issues are fixed.

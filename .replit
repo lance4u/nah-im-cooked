@@ -26,8 +26,11 @@ args = "npm start"
 outputType = "console"
 
 [deployment]
-deploymentTarget = "vm"
-run = ["node", "index.js"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 8080
