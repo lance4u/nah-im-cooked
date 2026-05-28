@@ -1,1 +1,13 @@
-{ "timed": [], "permanent": [] }
+{
+  "timed": [],
+  "permanent": [
+    {
+      "id": "930885103457009754-perm-1779996886739",
+      "userId": "930885103457009754",
+      "channelId": "1500766318150942811",
+      "reason": "bump",
+      "interval": 7200000,
+      "intervalStr": "2hr"
+    }
+  ]
+}

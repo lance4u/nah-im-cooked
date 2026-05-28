@@ -24,3 +24,12 @@ args = "npm start"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[deployment]
+deploymentTarget = "cloudrun"
+
+[userenv]
+
+[userenv.shared]
+CLIENT_ID = "1509563586907738232"
+GUILD_ID = "1110010248456065178"
