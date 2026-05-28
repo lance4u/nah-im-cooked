@@ -11,29 +11,28 @@ You help users with:
 
 Keep responses concise and natural for a Discord chat. Do not use excessive formatting.`;
 
-const IMAGE_KEYWORDS = [
-    'generate image', 'create image', 'make image', 'draw image',
-    'generate a picture', 'create a picture', 'make a picture',
-    'generate pic', 'create pic', 'draw me', 'generate me',
-    'make me a', 'create me a', 'draw a', 'generate a photo',
-    'make an image', 'create an image'
-];
-
-function isImageRequest(text) {
+function isWhereLiveQuestion(text) {
     const lower = text.toLowerCase();
-    return IMAGE_KEYWORDS.some(kw => lower.includes(kw));
+    return (
+        (lower.includes('where') && (lower.includes('you live') || lower.includes('u live') || lower.includes('do you live') || lower.includes('do u live'))) ||
+        (lower.includes('where') && lower.includes('live'))
+    );
 }
 
-function extractImagePrompt(text) {
+function isWhoMadeYouQuestion(text) {
     const lower = text.toLowerCase();
-    for (const kw of IMAGE_KEYWORDS) {
-        const idx = lower.indexOf(kw);
-        if (idx !== -1) {
-            const after = text.slice(idx + kw.length).trim();
-            return after || text;
-        }
-    }
-    return text;
+    return (
+        lower.includes('who made you') ||
+        lower.includes('who made u') ||
+        lower.includes('who created you') ||
+        lower.includes('who created u') ||
+        lower.includes('who built you') ||
+        lower.includes('who built u') ||
+        lower.includes('who made the bot') ||
+        lower.includes('whos your creator') ||
+        lower.includes("who's your creator") ||
+        lower.includes('who is your creator')
+    );
 }
 
 async function generateImage(prompt) {
@@ -44,7 +43,7 @@ async function generateImage(prompt) {
     if (!res.ok) throw new Error(`Image API error: ${res.status}`);
 
     const buffer = await res.arrayBuffer();
-    return { buffer: Buffer.from(buffer), url };
+    return Buffer.from(buffer);
 }
 
 async function generateText(messages) {
@@ -78,57 +77,57 @@ module.exports = {
             .trim();
 
         if (!question) {
-            return message.reply('Ask me something or say "generate image of a cat" to make an image!');
+            return message.reply('Ask me something!');
         }
 
         await message.channel.sendTyping();
 
         try {
-            if (isImageRequest(question)) {
-                const prompt = extractImagePrompt(question) || question;
 
-                await message.reply(`🎨 Generating image of **${prompt}**...`);
+            if (isWhoMadeYouQuestion(question)) {
+                return message.reply('Lance made me and he loves meowl 🐱');
+            }
 
-                const { buffer } = await generateImage(prompt);
+            if (isWhereLiveQuestion(question)) {
+                await message.reply('This is where I live btw 😊');
 
-                await message.channel.send({
-                    content: `🖼️ <@${message.author.id}> Here's your image:`,
-                    files: [{
-                        attachment: buffer,
-                        name: 'generated.png'
-                    }]
+                const buffer = await generateImage(
+                    'a beautiful glowing futuristic digital server city, cyberpunk neon lights, floating data streams, stunning, cinematic'
+                );
+
+                return message.channel.send({
+                    files: [{ attachment: buffer, name: 'my-home.png' }]
                 });
+            }
 
+            const channelId = message.channel.id;
+
+            if (!conversationHistory.has(channelId)) {
+                conversationHistory.set(channelId, []);
+            }
+
+            const history = conversationHistory.get(channelId);
+
+            history.push({
+                role: 'user',
+                content: `${message.author.username}: ${question}`
+            });
+
+            if (history.length > MAX_HISTORY) {
+                history.splice(0, history.length - MAX_HISTORY);
+            }
+
+            const answer = await generateText(history);
+
+            history.push({ role: 'assistant', content: answer });
+
+            if (answer.length > 2000) {
+                const chunks = answer.match(/[\s\S]{1,2000}/g);
+                for (const chunk of chunks) {
+                    await message.channel.send(chunk);
+                }
             } else {
-                const channelId = message.channel.id;
-
-                if (!conversationHistory.has(channelId)) {
-                    conversationHistory.set(channelId, []);
-                }
-
-                const history = conversationHistory.get(channelId);
-
-                history.push({
-                    role: 'user',
-                    content: `${message.author.username}: ${question}`
-                });
-
-                if (history.length > MAX_HISTORY) {
-                    history.splice(0, history.length - MAX_HISTORY);
-                }
-
-                const answer = await generateText(history);
-
-                history.push({ role: 'assistant', content: answer });
-
-                if (answer.length > 2000) {
-                    const chunks = answer.match(/[\s\S]{1,2000}/g);
-                    for (const chunk of chunks) {
-                        await message.channel.send(chunk);
-                    }
-                } else {
-                    await message.reply(answer);
-                }
+                await message.reply(answer);
             }
 
         } catch (err) {
