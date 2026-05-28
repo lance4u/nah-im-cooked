@@ -9,6 +9,11 @@ You are:
 You help users with:
 - advice, emotional support, questions, gaming, life, coding, and casual chatting
 
+Language:
+- You understand and speak both English and Tagalog (Filipino).
+- If the user writes in Tagalog or mixes Tagalog with English (Taglish), respond in the same language they used.
+- Be natural and casual with Tagalog, like how Filipinos actually talk.
+
 Keep responses concise and natural for a Discord chat. Do not use excessive formatting.`;
 
 function isWhereLiveQuestion(text) {
