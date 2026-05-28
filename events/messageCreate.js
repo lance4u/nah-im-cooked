@@ -88,48 +88,39 @@ async function generateImage(prompt) {
 }
 
 async function generateText(systemPrompt, messages) {
-    const res = await fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            messages: [
-                { role: 'system', content: systemPrompt },
-                ...messages
-            ],
-            model: 'openai-large',
-            seed: Math.floor(Math.random() * 99999)
-        })
-    });
+    // Format conversation history into a single prompt
+    const recentMessages = messages.slice(-10);
+    const conversationText = recentMessages
+        .map(m => m.role === 'user' ? `User: ${m.content}` : `You: ${m.content}`)
+        .join('\n');
+
+    // Keep system prompt concise to avoid URL length issues
+    const shortSystem = systemPrompt.slice(0, 800);
+
+    const encodedPrompt = encodeURIComponent(conversationText);
+    const encodedSystem = encodeURIComponent(shortSystem);
+    const seed = Math.floor(Math.random() * 99999);
+
+    const url = `https://text.pollinations.ai/${encodedPrompt}?model=openai&system=${encodedSystem}&seed=${seed}`;
+
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Text API error: ${res.status}`);
     return await res.text();
 }
 
 async function extractAndSaveFacts(userId, username, userMessage, botReply) {
     try {
-        const res = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: [
-                    {
-                        role: 'system',
-                        content: `Extract memorable personal facts about the user from the conversation below. Only extract clear, specific facts (name, age, location, hobbies, favorite games/shows/music, job, relationships, etc.). Return each fact as a short sentence on its own line. If there are no memorable facts, return the word NONE.`
-                    },
-                    {
-                        role: 'user',
-                        content: `User (${username}): ${userMessage}\nBot: ${botReply}`
-                    }
-                ],
-                model: 'openai',
-                seed: 42
-            })
-        });
+        const prompt = `User (${username}) said: "${userMessage.slice(0, 300)}". Extract any memorable personal facts (name, age, hobbies, games, location, etc.) as short bullet points. Reply NONE if nothing memorable.`;
+        const system = 'You extract personal facts from conversations. Be brief. One fact per line. Reply NONE if nothing to extract.';
 
+        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&system=${encodeURIComponent(system)}&seed=42`;
+        const res = await fetch(url);
         if (!res.ok) return;
-        const text = (await res.text()).trim();
-        if (text === 'NONE' || !text) return;
 
-        const facts = text.split('\n').map(f => f.trim()).filter(f => f && f !== 'NONE');
+        const text = (await res.text()).trim();
+        if (!text || text.toUpperCase().includes('NONE')) return;
+
+        const facts = text.split('\n').map(f => f.replace(/^[-•*]\s*/, '').trim()).filter(f => f.length > 3);
         for (const fact of facts) {
             memoryManager.addFact(userId, fact);
         }
