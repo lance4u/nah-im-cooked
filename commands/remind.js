@@ -1,22 +1,36 @@
-const { SlashCommandBuilder } = require('discord.js');
-const reminderManager = require('../utils/reminderManager');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const fs = require('fs');
 
-function parseTime(timeStr) {
-    const match = timeStr.match(/^(\d+)(s|m|hr|d)$/i);
-    if (!match) return null;
-    const value = parseInt(match[1]);
-    const unit = match[2].toLowerCase();
-    const multipliers = { s: 1000, m: 60000, hr: 3600000, d: 86400000 };
-    return value * multipliers[unit];
+const remindersFile = './config/reminders.json';
+
+function loadReminders() {
+    try {
+        const data = JSON.parse(fs.readFileSync(remindersFile));
+        if (Array.isArray(data)) return { timed: [], permanent: [] };
+        return data;
+    } catch {
+        return { timed: [], permanent: [] };
+    }
 }
 
-function formatTime(timeStr) {
-    const match = timeStr.match(/^(\d+)(s|m|hr|d)$/i);
-    if (!match) return timeStr;
-    const value = match[1];
-    const unit = match[2].toLowerCase();
+function saveReminders(data) {
+    fs.writeFileSync(remindersFile, JSON.stringify(data, null, 2));
+}
+
+function parseDuration(duration) {
+    const match = duration.match(/^(\d+)(s|m|hr|d)$/);
+    if (!match) return null;
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    const map = { s: 1000, m: 60000, hr: 3600000, d: 86400000 };
+    return value * map[unit];
+}
+
+function formatDuration(duration) {
+    const match = duration.match(/^(\d+)(s|m|hr|d)$/);
+    if (!match) return duration;
     const labels = { s: 'second(s)', m: 'minute(s)', hr: 'hour(s)', d: 'day(s)' };
-    return `${value} ${labels[unit]}`;
+    return `${match[1]} ${labels[match[2]]}`;
 }
 
 module.exports = {
@@ -26,32 +40,21 @@ module.exports = {
 
         .addSubcommand(sub => sub
             .setName('set')
-            .setDescription('Set a timed reminder')
-            .addStringOption(opt => opt
-                .setName('time')
-                .setDescription('Duration: 1s, 5m, 2hr, 1d')
-                .setRequired(true)
-            )
-            .addStringOption(opt => opt
-                .setName('reason')
-                .setDescription('What to remind you about')
-                .setRequired(true)
-            )
+            .setDescription('Set a one-time reminder')
+            .addStringOption(opt => opt.setName('time').setDescription('Duration: 1s, 5m, 2hr, 1d').setRequired(true))
+            .addStringOption(opt => opt.setName('reason').setDescription('What to remind you about').setRequired(true))
         )
 
         .addSubcommand(sub => sub
             .setName('permanent')
             .setDescription('Set a repeating permanent reminder')
-            .addStringOption(opt => opt
-                .setName('time')
-                .setDescription('Repeat every: 1s, 5m, 2hr, 1d')
-                .setRequired(true)
-            )
-            .addStringOption(opt => opt
-                .setName('reason')
-                .setDescription('What to remind you about')
-                .setRequired(true)
-            )
+            .addStringOption(opt => opt.setName('time').setDescription('Repeat every: 1s, 5m, 2hr, 1d').setRequired(true))
+            .addStringOption(opt => opt.setName('reason').setDescription('What to remind you about').setRequired(true))
+        )
+
+        .addSubcommand(sub => sub
+            .setName('list')
+            .setDescription('View all your active reminders')
         )
 
         .addSubcommand(sub => sub
@@ -62,132 +65,108 @@ module.exports = {
         .addSubcommand(sub => sub
             .setName('clearpermanent')
             .setDescription('Clear all your permanent reminders')
-        )
-
-        .addSubcommand(sub => sub
-            .setName('list')
-            .setDescription('View all your active reminders')
         ),
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         const userId = interaction.user.id;
         const channel = interaction.channel;
+        const data = loadReminders();
 
         if (sub === 'set') {
             const timeStr = interaction.options.getString('time');
             const reason = interaction.options.getString('reason');
-            const ms = parseTime(timeStr);
+            const ms = parseDuration(timeStr);
 
-            if (!ms) {
-                return interaction.reply({
-                    content: '❌ Invalid time format. Use: `1s`, `5m`, `2hr`, `1d`',
-                    ephemeral: true
-                });
-            }
+            if (!ms) return interaction.reply({ content: '❌ Invalid format. Use: `1s`, `5m`, `2hr`, `1d`', ephemeral: true });
 
             const id = `${userId}-${Date.now()}`;
+            data.timed.push({ id, userId, channelId: channel.id, reason, fireAt: Date.now() + ms });
+            saveReminders(data);
 
-            reminderManager.addTimedReminder({
-                id,
-                userId,
-                channelId: channel.id,
-                reason,
-                fireAt: Date.now() + ms
-            });
+            const embed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('⏰ Reminder Set')
+                .addFields({ name: '📝 Reason', value: reason }, { name: '⏱️ In', value: formatDuration(timeStr) })
+                .setTimestamp();
 
-            await interaction.reply(
-                `⏰ Got it! I'll remind you in **${formatTime(timeStr)}**: ${reason}`
-            );
+            await interaction.reply({ embeds: [embed] });
 
-            const timerId = setTimeout(async () => {
+            setTimeout(async () => {
                 await channel.send(`⏰ <@${userId}> Reminder: **${reason}**`);
-                reminderManager.removeTimedReminder(id);
+                const updated = loadReminders();
+                updated.timed = updated.timed.filter(r => r.id !== id);
+                saveReminders(updated);
             }, ms);
-
-            reminderManager.registerTimer(userId, timerId);
 
         } else if (sub === 'permanent') {
             const timeStr = interaction.options.getString('time');
             const reason = interaction.options.getString('reason');
-            const ms = parseTime(timeStr);
+            const ms = parseDuration(timeStr);
 
-            if (!ms) {
-                return interaction.reply({
-                    content: '❌ Invalid time format. Use: `1s`, `5m`, `2hr`, `1d`',
-                    ephemeral: true
-                });
-            }
+            if (!ms) return interaction.reply({ content: '❌ Invalid format. Use: `1s`, `5m`, `2hr`, `1d`', ephemeral: true });
 
             const id = `${userId}-perm-${Date.now()}`;
+            data.permanent.push({ id, userId, channelId: channel.id, reason, intervalStr: timeStr });
+            saveReminders(data);
 
-            reminderManager.addPermanentReminder({
-                id,
-                userId,
-                channelId: channel.id,
-                reason,
-                interval: ms,
-                intervalStr: timeStr
-            });
+            const embed = new EmbedBuilder()
+                .setColor(0x9B59B6)
+                .setTitle('🔔 Permanent Reminder Set')
+                .addFields({ name: '📝 Reason', value: reason }, { name: '🔁 Every', value: formatDuration(timeStr) })
+                .setTimestamp();
 
-            await interaction.reply(
-                `🔔 Permanent reminder set! I'll remind you every **${formatTime(timeStr)}**: ${reason}`
-            );
+            await interaction.reply({ embeds: [embed] });
 
-            const intervalId = setInterval(async () => {
+            setInterval(async () => {
                 await channel.send(`🔔 <@${userId}> Reminder: **${reason}**`);
             }, ms);
 
-            reminderManager.registerInterval(userId, intervalId);
-
-        } else if (sub === 'clear') {
-            reminderManager.clearTimedReminders(userId);
-            await interaction.reply('✅ All your timed reminders have been cleared.');
-
-        } else if (sub === 'clearpermanent') {
-            reminderManager.clearPermanentReminders(userId);
-            await interaction.reply('✅ All your permanent reminders have been cleared.');
-
         } else if (sub === 'list') {
-            const data = reminderManager.getReminders();
             const timed = data.timed.filter(r => r.userId === userId);
             const permanent = data.permanent.filter(r => r.userId === userId);
 
-            if (timed.length === 0 && permanent.length === 0) {
+            if (!timed.length && !permanent.length) {
                 return interaction.reply({ content: '📭 You have no active reminders.', ephemeral: true });
             }
 
-            let msg = '📋 **Your Active Reminders**\n\n';
-
-            if (timed.length > 0) {
-                msg += '⏰ **Timed:**\n';
+            let desc = '';
+            if (timed.length) {
+                desc += '**⏰ Timed:**\n';
                 timed.forEach((r, i) => {
-                    const msLeft = r.fireAt - Date.now();
-                    const secsLeft = Math.max(0, Math.floor(msLeft / 1000));
-                    const minsLeft = Math.floor(secsLeft / 60);
-                    const hrsLeft = Math.floor(minsLeft / 60);
-                    const daysLeft = Math.floor(hrsLeft / 24);
-
-                    let timeLeft;
-                    if (daysLeft > 0) timeLeft = `${daysLeft}d ${hrsLeft % 24}h left`;
-                    else if (hrsLeft > 0) timeLeft = `${hrsLeft}h ${minsLeft % 60}m left`;
-                    else if (minsLeft > 0) timeLeft = `${minsLeft}m left`;
-                    else timeLeft = `${secsLeft}s left`;
-
-                    msg += `${i + 1}. **${r.reason}** — ${timeLeft}\n`;
+                    const msLeft = Math.max(0, r.fireAt - Date.now());
+                    const mins = Math.floor(msLeft / 60000);
+                    const hrs = Math.floor(mins / 60);
+                    const days = Math.floor(hrs / 24);
+                    const left = days > 0 ? `${days}d left` : hrs > 0 ? `${hrs}h left` : `${mins}m left`;
+                    desc += `${i + 1}. **${r.reason}** — ${left}\n`;
                 });
-                msg += '\n';
+                desc += '\n';
             }
-
-            if (permanent.length > 0) {
-                msg += '🔔 **Permanent (Repeating):**\n';
+            if (permanent.length) {
+                desc += '**🔔 Permanent:**\n';
                 permanent.forEach((r, i) => {
-                    const every = r.intervalStr ? `every ${formatTime(r.intervalStr)}` : 'every day';
-                    msg += `${i + 1}. **${r.reason}** — ${every}\n`;
+                    desc += `${i + 1}. **${r.reason}** — every ${formatDuration(r.intervalStr || '1d')}\n`;
                 });
             }
 
-            await interaction.reply({ content: msg, ephemeral: true });
+            const embed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('📋 Your Reminders')
+                .setDescription(desc)
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+
+        } else if (sub === 'clear') {
+            data.timed = data.timed.filter(r => r.userId !== userId);
+            saveReminders(data);
+            await interaction.reply({ content: '✅ Timed reminders cleared.', ephemeral: true });
+
+        } else if (sub === 'clearpermanent') {
+            data.permanent = data.permanent.filter(r => r.userId !== userId);
+            saveReminders(data);
+            await interaction.reply({ content: '✅ Permanent reminders cleared.', ephemeral: true });
         }
     }
 };
