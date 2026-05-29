@@ -9,7 +9,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x2b2d31)
             .setAuthor({ name: 'Join Our Server' })
-            .setDescription('[discord.gg/auJab2mRYD](https://discord.gg/auJab2mRYD)')
+            .addFields({ name: 'Invite', value: 'https://discord.gg/auJab2mRYD' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });
