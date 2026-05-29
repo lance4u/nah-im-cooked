@@ -14,7 +14,7 @@ function formatUptime(ms) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stats')
-        .setDescription('View bot stats — uptime, servers, and users.'),
+        .setDescription('View bot statistics.'),
 
     async execute(interaction, client) {
         const guilds = client.guilds.cache.size;
@@ -23,17 +23,17 @@ module.exports = {
         const ping = client.ws.ping;
 
         const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle('📊 Bot Stats')
+            .setColor(0x2b2d31)
+            .setAuthor({ name: client.user.username, iconURL: client.user.displayAvatarURL() })
             .addFields(
-                { name: '⏱️ Uptime', value: uptime, inline: true },
-                { name: '🏓 Ping', value: `${ping}ms`, inline: true },
-                { name: '🌐 Servers', value: `${guilds}`, inline: true },
-                { name: '👥 Total Users', value: `${users.toLocaleString()}`, inline: true },
-                { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
-                { name: '🟩 Node.js', value: process.version, inline: true }
+                { name: 'Uptime', value: uptime, inline: true },
+                { name: 'Ping', value: `${ping}ms`, inline: true },
+                { name: 'Servers', value: `${guilds}`, inline: true },
+                { name: 'Users', value: users.toLocaleString(), inline: true },
+                { name: 'Discord.js', value: require('discord.js').version, inline: true },
+                { name: 'Node.js', value: process.version, inline: true }
             )
-            .setFooter({ text: `${client.user.username} • Made by Lance` })
+            .setFooter({ text: 'Made by Lance' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

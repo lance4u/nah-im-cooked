@@ -6,34 +6,29 @@ module.exports = {
         .setDescription('Show all available commands.'),
 
     async execute(interaction, client) {
-        try {
-            const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle('📘 Help Menu')
-                .setDescription('Here are all available bot commands.')
-                .addFields(
-                    {
-                        name: '⚡ General Commands',
-                        value: '</ping:0> - Check bot latency\n</help:0> - Show help menu\n</remind:0> - Set reminders',
-                        inline: false
-                    },
-                    {
-                        name: '🎧 Voice Commands',
-                        value: '</join:0> - Join voice channel\n</leave:0> - Leave voice channel\n</afk:0> - Stay AFK in VC\n</stream:0> - Start VC stream\n</setvc:0> - Set voice channel',
-                        inline: false
-                    }
-                )
-                .setFooter({ text: `${client.user.username} • Experimental Bot` })
-                .setTimestamp();
+        const embed = new EmbedBuilder()
+            .setColor(0x2b2d31)
+            .setAuthor({ name: client.user.username, iconURL: client.user.displayAvatarURL() })
+            .setDescription('Here are all available commands.')
+            .addFields(
+                {
+                    name: 'General',
+                    value: '`/ping` — Latency check\n`/stats` — Bot statistics\n`/help` — Command list\n`/memory` — View or clear your memory\n`/remind` — Reminder system',
+                    inline: false
+                },
+                {
+                    name: 'Server',
+                    value: '`/server` — Server invite link\n`/invite` — Bot invite link\n`/userinfo` — View user info',
+                    inline: false
+                },
+                {
+                    name: 'Voice',
+                    value: '`/join` — Join voice channel\n`/leave` — Leave voice channel\n`/afk` — Set permanent AFK VC\n`/setvc` — Set voice channel\n`/stream` — Start stream',
+                    inline: false
+                }
+            )
+            .setTimestamp();
 
-            await interaction.reply({ embeds: [embed] });
-
-        } catch (error) {
-            console.error(error);
-            await interaction.reply({
-                content: '❌ Failed to load help menu.',
-                ephemeral: true
-            });
-        }
+        await interaction.reply({ embeds: [embed] });
     }
 };

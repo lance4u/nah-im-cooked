@@ -7,11 +7,9 @@ module.exports = {
 
     async execute(interaction) {
         const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle('📨 Join Our Server!')
-            .setDescription('Click the link below to join our Discord community!')
-            .addFields({ name: '🔗 Invite Link', value: 'https://discord.gg/auJab2mRYD' })
-            .setFooter({ text: 'See you there!' })
+            .setColor(0x2b2d31)
+            .setAuthor({ name: 'Join Our Server' })
+            .setDescription('[discord.gg/auJab2mRYD](https://discord.gg/auJab2mRYD)')
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });
