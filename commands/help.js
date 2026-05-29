@@ -12,21 +12,27 @@ module.exports = {
             .setDescription('Here are all available commands.')
             .addFields(
                 {
-                    name: 'General',
-                    value: '`/ping` — Latency check\n`/stats` — Bot statistics\n`/help` — Command list\n`/memory` — View or clear your memory\n`/remind` — Reminder system',
+                    name: '📋 General',
+                    value: '`/ping` — Check bot latency\n`/help` — Show this list',
                     inline: false
                 },
                 {
-                    name: 'Server',
-                    value: '`/server` — Server invite link\n`/invite` — Bot invite link\n`/userinfo` — View user info',
+                    name: '💤 AFK',
+                    value: '`/afk [reason]` — Set your global AFK status',
                     inline: false
                 },
                 {
-                    name: 'Voice',
-                    value: '`/join` — Join voice channel\n`/leave` — Leave voice channel\n`/afk` — Set permanent AFK VC\n`/setvc` — Set voice channel\n`/stream` — Start stream',
+                    name: '⏰ Reminders',
+                    value: '`/remind set` — Set a timed reminder\n`/remind list` — View your reminders\n`/remind clear` — Clear all your reminders',
+                    inline: false
+                },
+                {
+                    name: '🎙️ Voice',
+                    value: '`/join` — Join a voice channel\n`/leave` — Leave the voice channel\n`/setvc` — Set the 24/7 permanent VC (Admin)\n`/stream` — Update streaming status',
                     inline: false
                 }
             )
+            .setFooter({ text: 'Unknown AI Bot' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

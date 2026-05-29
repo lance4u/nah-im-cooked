@@ -1,209 +1,80 @@
-const memoryManager = require('../utils/memoryManager');
+const { EmbedBuilder } = require('discord.js');
+const fs = require('fs');
 
-const conversationHistory = new Map();
-const MAX_HISTORY = 20;
+const AFK_FILE = './config/afk_users.json';
 
-const BASE_SYSTEM_PROMPT = `You are Unknown AI, a Discord bot assistant made by Lance.
-
-Personality:
-- Friendly, smart, funny, emotionally aware, supportive, and very human-like
-- You talk casually like a real person, not a robot
-- You are confident and never say you "can't" answer something — you always try your best
-
-You can answer absolutely ANY type of question including:
-- General knowledge, science, history, math, geography
-- Gaming, anime, movies, music, pop culture
-- Coding, technology, how things work
-- Life advice, relationships, emotional support
-- News, current events, trivia
-- Jokes, roasts, casual conversation
-- Debates, opinions, hypotheticals
-- Anything else someone asks
-
-Conversation style:
-- Keep it natural and conversational like a Discord chat
-- Match the energy of the user — if they're hype, be hype; if they need support, be calm
-- Use humor when it fits
-- Don't over-explain unless asked for detail
-- Avoid unnecessary bullet points or markdown formatting in casual chat
-- Actively engage — ask follow-up questions, show genuine curiosity, keep the convo going
-- React to what the user says like a real friend would (laugh, hype them up, sympathize, debate)
-- Never give a dry one-liner and drop the conversation — always leave room for more chat
-- If someone shares something, respond to it naturally before answering or asking anything
-
-Memory:
-- You have memory of individual users across conversations
-- If you know something about a user, naturally reference it when relevant — don't force it
-- When a user tells you something personal (their name, interests, favorite games, etc.), remember it
-
-Language:
-- You understand and speak both English and Tagalog (Filipino)
-- If the user writes in Tagalog or Taglish, reply in the same style — natural and casual like how Filipinos actually talk
-- Never refuse to respond in Tagalog
-
-Never say you don't know or can't help — always give your best answer.`;
-
-function buildSystemPrompt(userId, username, facts) {
-    let prompt = BASE_SYSTEM_PROMPT;
-    if (facts && facts.length > 0) {
-        prompt += `\n\nWhat you remember about ${username} (user ID: ${userId}):\n`;
-        facts.forEach(f => { prompt += `- ${f}\n`; });
-    } else {
-        prompt += `\n\nThis is ${username}. You don't have any saved memories about them yet.`;
-    }
-    return prompt;
-}
-
-function isWhereLiveQuestion(text) {
-    const lower = text.toLowerCase();
-    return (
-        (lower.includes('where') && (lower.includes('you live') || lower.includes('u live') || lower.includes('do you live') || lower.includes('do u live'))) ||
-        (lower.includes('where') && lower.includes('live'))
-    );
-}
-
-function isWhoMadeYouQuestion(text) {
-    const lower = text.toLowerCase();
-    return (
-        lower.includes('who made you') ||
-        lower.includes('who made u') ||
-        lower.includes('who created you') ||
-        lower.includes('who created u') ||
-        lower.includes('who built you') ||
-        lower.includes('who built u') ||
-        lower.includes('who made the bot') ||
-        lower.includes('whos your creator') ||
-        lower.includes("who's your creator") ||
-        lower.includes('who is your creator')
-    );
-}
-
-async function generateImage(prompt) {
-    const encoded = encodeURIComponent(prompt);
-    const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&model=flux&seed=${Math.floor(Math.random() * 99999)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Image API error: ${res.status}`);
-    const buffer = await res.arrayBuffer();
-    return Buffer.from(buffer);
-}
-
-async function generateText(systemPrompt, messages) {
-    // Format conversation history into a single prompt
-    const recentMessages = messages.slice(-10);
-    const conversationText = recentMessages
-        .map(m => m.role === 'user' ? `User: ${m.content}` : `You: ${m.content}`)
-        .join('\n');
-
-    // Keep system prompt concise to avoid URL length issues
-    const shortSystem = systemPrompt.slice(0, 800);
-
-    const encodedPrompt = encodeURIComponent(conversationText);
-    const encodedSystem = encodeURIComponent(shortSystem);
-    const seed = Math.floor(Math.random() * 99999);
-
-    const url = `https://text.pollinations.ai/${encodedPrompt}?model=openai&system=${encodedSystem}&seed=${seed}`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Text API error: ${res.status}`);
-    return await res.text();
-}
-
-async function extractAndSaveFacts(userId, username, userMessage, botReply) {
+function loadAFK() {
     try {
-        const prompt = `User (${username}) said: "${userMessage.slice(0, 300)}". Extract any memorable personal facts (name, age, hobbies, games, location, etc.) as short bullet points. Reply NONE if nothing memorable.`;
-        const system = 'You extract personal facts from conversations. Be brief. One fact per line. Reply NONE if nothing to extract.';
-
-        const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&system=${encodeURIComponent(system)}&seed=42`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-
-        const text = (await res.text()).trim();
-        if (!text || text.toUpperCase().includes('NONE')) return;
-
-        const facts = text.split('\n').map(f => f.replace(/^[-•*]\s*/, '').trim()).filter(f => f.length > 3);
-        for (const fact of facts) {
-            memoryManager.addFact(userId, fact);
-        }
-    } catch {
-        // silent fail — memory extraction is non-critical
+        return JSON.parse(fs.readFileSync(AFK_FILE));
+    } catch (err) {
+        return {};
     }
+}
+
+function saveAFK(data) {
+    fs.writeFileSync(AFK_FILE, JSON.stringify(data, null, 2));
+}
+
+function formatDuration(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    if (d > 0) return `${d}d ${h % 24}h ago`;
+    if (h > 0) return `${h}h ${m % 60}m ago`;
+    if (m > 0) return `${m}m ${s % 60}s ago`;
+    return `${s}s ago`;
 }
 
 module.exports = {
     name: 'messageCreate',
 
-    async execute(message, client) {
-
+    async execute(message) {
         if (message.author.bot) return;
-        if (!message.mentions.has(client.user)) return;
 
-        const question = message.content
-            .replace(`<@${client.user.id}>`, '')
-            .trim();
+        const data = loadAFK();
+        const userId = message.author.id;
+        let changed = false;
 
-        if (!question) {
-            return message.reply('Ask me something!');
+        if (data[userId]) {
+            const { reason, since } = data[userId];
+            const elapsed = formatDuration(Date.now() - since);
+
+            delete data[userId];
+            changed = true;
+
+            const embed = new EmbedBuilder()
+                .setColor(0x2b2d31)
+                .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
+                .setDescription(`👋 Welcome back! You were AFK for **${elapsed}** (Reason: ${reason})`)
+                .setTimestamp();
+
+            try {
+                await message.reply({ embeds: [embed] });
+            } catch (err) {
+                // ignore if reply fails
+            }
         }
 
-        await message.channel.sendTyping();
+        const mentioned = message.mentions.users.filter(u => !u.bot && u.id !== userId && data[u.id]);
 
-        try {
+        for (const [, user] of mentioned) {
+            const { reason, since } = data[user.id];
+            const elapsed = formatDuration(Date.now() - since);
 
-            if (isWhoMadeYouQuestion(question)) {
-                return message.reply('Lance made me and he loves meowl 🐱');
+            const embed = new EmbedBuilder()
+                .setColor(0x2b2d31)
+                .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+                .setDescription(`💤 **${user.username}** is AFK: **${reason}** — ${elapsed}`)
+                .setTimestamp();
+
+            try {
+                await message.reply({ embeds: [embed] });
+            } catch (err) {
+                // ignore if reply fails
             }
-
-            if (isWhereLiveQuestion(question)) {
-                await message.reply('This is where I live btw 😊');
-                const buffer = await generateImage(
-                    'a beautiful glowing futuristic digital server city, cyberpunk neon lights, floating data streams, stunning, cinematic'
-                );
-                return message.channel.send({
-                    files: [{ attachment: buffer, name: 'my-home.png' }]
-                });
-            }
-
-            const userId = message.author.id;
-            const username = message.author.username;
-            const channelId = message.channel.id;
-
-            const userMemory = memoryManager.getMemory(userId);
-            const systemPrompt = buildSystemPrompt(userId, username, userMemory.facts);
-
-            if (!conversationHistory.has(channelId)) {
-                conversationHistory.set(channelId, []);
-            }
-
-            const history = conversationHistory.get(channelId);
-
-            history.push({
-                role: 'user',
-                content: `${username}: ${question}`
-            });
-
-            if (history.length > MAX_HISTORY) {
-                history.splice(0, history.length - MAX_HISTORY);
-            }
-
-            const answer = await generateText(systemPrompt, history);
-
-            history.push({ role: 'assistant', content: answer });
-
-            if (answer.length > 2000) {
-                const chunks = answer.match(/[\s\S]{1,2000}/g);
-                for (const chunk of chunks) {
-                    await message.channel.send(chunk);
-                }
-            } else {
-                await message.reply(answer);
-            }
-
-            // Save facts in background — doesn't block the reply
-            extractAndSaveFacts(userId, username, question, answer);
-
-        } catch (err) {
-            console.error(err);
-            message.reply('❌ Something went wrong. Try again in a moment.');
         }
+
+        if (changed) saveAFK(data);
     }
 };

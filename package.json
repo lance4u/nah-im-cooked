@@ -1,7 +1,7 @@
 {
   "name": "unknown-ai-bot",
   "version": "1.0.0",
-  "description": "Unknown AI Discord Bot",
+  "description": "Unknown AI Discord Bot - 24/7 VC & Streaming",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -9,10 +9,8 @@
   },
   "dependencies": {
     "@discordjs/voice": "^0.17.0",
-    "axios": "^1.7.2",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
-    "express": "^5.2.1",
-    "openai": "^4.52.7"
+    "express": "^5.2.1"
   }
 }

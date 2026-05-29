@@ -32,4 +32,4 @@ module.exports = {
           `📺 Streaming status updated to: ${text}`
       );
   }
-};
+}

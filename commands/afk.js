@@ -1,23 +1,49 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
+
+const AFK_FILE = './config/afk_users.json';
+
+function loadAFK() {
+    try {
+        return JSON.parse(fs.readFileSync(AFK_FILE));
+    } catch (err) {
+        return {};
+    }
+}
+
+function saveAFK(data) {
+    fs.writeFileSync(AFK_FILE, JSON.stringify(data, null, 2));
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Save your current VC as a permanent AFK channel.'),
+        .setDescription('Set your AFK status globally.')
+        .addStringOption(opt =>
+            opt.setName('reason')
+                .setDescription('Why you are going AFK')
+                .setRequired(false)
+        ),
 
     async execute(interaction) {
-        const channel = interaction.member.voice.channel;
+        const reason = interaction.options.getString('reason') || 'No reason given';
+        const userId = interaction.user.id;
 
-        if (!channel) {
-            return interaction.reply({ content: 'You need to be in a voice channel first.', ephemeral: true });
-        }
+        const data = loadAFK();
+        data[userId] = {
+            reason,
+            since: Date.now(),
+            username: interaction.user.username
+        };
+        saveAFK(data);
 
-        fs.writeFileSync('./config/afk.json', JSON.stringify({
-            guildId: interaction.guild.id,
-            channelId: channel.id
-        }, null, 2));
+        const embed = new EmbedBuilder()
+            .setColor(0x2b2d31)
+            .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+            .setDescription(`✅ You are now AFK: **${reason}**`)
+            .setFooter({ text: 'You will be unmarked AFK when you send a message.' })
+            .setTimestamp();
 
-        await interaction.reply({ content: `Permanent AFK VC set to **${channel.name}**.`, ephemeral: true });
+        await interaction.reply({ embeds: [embed] });
     }
 };
