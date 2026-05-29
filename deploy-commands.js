@@ -38,19 +38,12 @@ const rest = new REST({
         );
 
         await rest.put(
-
-            Routes.applicationGuildCommands(
-                process.env.CLIENT_ID,
-                process.env.GUILD_ID
-            ),
-
-            {
-                body: commands
-            }
+            Routes.applicationCommands(process.env.CLIENT_ID),
+            { body: commands }
         );
 
         console.log(
-            'Slash commands deployed.'
+            `Slash commands deployed globally (${commands.length} commands).`
         );
 
     } catch (err) {
